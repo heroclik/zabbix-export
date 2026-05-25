@@ -34,6 +34,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--completed-months", action="store_true", help="Use only completed months, excluding current month")
     parser.add_argument("--host-batch-size", type=int, default=10, help="Number of hosts per export job")
     parser.add_argument("--output-dir", default="exports_finops", help="Directory for per-batch output files")
+    parser.add_argument("--timestamp-output-dir", action="store_true", help="Append YYYYMMDD_HHMMSS to output directory and place combined CSVs there")
     parser.add_argument("--combined-output", default="finops_combined_summary.csv", help="Combined summary CSV path")
     parser.add_argument("--combined-wide-output", default="finops_combined_wide.csv", help="Combined wide hourly CSV path")
     parser.add_argument(
@@ -147,7 +148,6 @@ def run_job(
     env: dict[str, str],
 ) -> tuple[Path, Path | None]:
     month_dir = Path(args.output_dir) / month_label
-    month_dir.mkdir(parents=True, exist_ok=True)
     summary_path = month_dir / f"rightsize_{month_label}_batch{batch_index:03d}.csv"
     raw_path = month_dir / f"rightsize_{month_label}_batch{batch_index:03d}_hourly.csv"
     wide_path = None if args.no_wide else month_dir / f"rightsize_{month_label}_batch{batch_index:03d}_wide.csv"
@@ -193,6 +193,7 @@ def run_job(
         print(f"dry-run {month_label} batch{batch_index:03d}: {start}..{end} hosts=[{host_label}]", flush=True)
         return summary_path, wide_path
 
+    month_dir.mkdir(parents=True, exist_ok=True)
     print(f"run {month_label} batch{batch_index:03d}: {len(hosts)} hosts -> {summary_path}", flush=True)
     subprocess.run(command, check=True, env=env)
     return summary_path, wide_path
@@ -238,12 +239,35 @@ def combine_csv(paths: list[Path], output_path: str) -> int:
             rows.extend(reader)
 
     rows.sort(key=sort_key)
+    Path(output_path).parent.mkdir(parents=True, exist_ok=True)
     with open(output_path, "w", newline="", encoding="utf-8") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
         for row in rows:
             writer.writerow(row)
     return len(rows)
+
+
+def timestamped_output_dir(output_dir: str) -> Path:
+    suffix = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    base = Path(output_dir)
+    return base.with_name(f"{base.name}_{suffix}")
+
+
+def place_plain_file_under_dir(output_dir: Path, output_path: str) -> str:
+    path = Path(output_path)
+    if path.is_absolute() or path.parent != Path("."):
+        return str(path)
+    return str(output_dir / path.name)
+
+
+def apply_timestamp_output_dir(args: argparse.Namespace) -> None:
+    if not args.timestamp_output_dir:
+        return
+    output_dir = timestamped_output_dir(args.output_dir)
+    args.output_dir = str(output_dir)
+    args.combined_output = place_plain_file_under_dir(output_dir, args.combined_output)
+    args.combined_wide_output = place_plain_file_under_dir(output_dir, args.combined_wide_output)
 
 
 def build_env(args: argparse.Namespace) -> dict[str, str]:
@@ -267,6 +291,7 @@ def main() -> int:
     if args.host_batch_size < 1:
         print("ERROR: --host-batch-size must be >= 1", file=sys.stderr)
         return 2
+    apply_timestamp_output_dir(args)
 
     try:
         if not args.url:

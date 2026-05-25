@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import json
 import os
 import subprocess
@@ -23,6 +24,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--config", default=DEFAULT_CONFIG, help="Config JSON path")
     parser.add_argument("--mode", choices=("monthly", "single"), default="monthly", help="monthly=batch export, single=one range export")
     parser.add_argument("--month", action="append", default=[], help="Specific calendar month to export in monthly mode, YYYY-MM. Can repeat")
+    parser.add_argument("--timestamp-output-dir", action="store_true", help="Append YYYYMMDD_HHMMSS to output directory for this run")
     parser.add_argument("--dry-run", action="store_true", help="Show planned monthly jobs without exporting")
     return parser.parse_args()
 
@@ -70,6 +72,19 @@ def config_list(config: dict[str, Any], key: str) -> list[str]:
     return [str(value)]
 
 
+def timestamped_output_dir(output_dir: str) -> Path:
+    suffix = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+    base = Path(output_dir)
+    return base.with_name(f"{base.name}_{suffix}")
+
+
+def place_plain_file_under_dir(output_dir: Path, output_path: str) -> str:
+    path = Path(output_path)
+    if path.is_absolute() or path.parent != Path("."):
+        return str(path)
+    return str(output_dir / path.name)
+
+
 def run_monthly(config: dict[str, Any], dry_run: bool, env: dict[str, str]) -> int:
     script = Path(__file__).with_name("run_finops_export_batches.py")
     selected_months = config_list(config, "month") + config_list(config, "months_selected")
@@ -104,6 +119,8 @@ def run_monthly(config: dict[str, Any], dry_run: bool, env: dict[str, str]) -> i
         command.append("--completed-months")
     if config_value(config, "no_verify", False):
         command.append("--no-verify")
+    if config_value(config, "timestamp_output_dir", False):
+        command.append("--timestamp-output-dir")
     if dry_run:
         command.append("--dry-run")
     return subprocess.run(command, env=env).returncode
@@ -111,15 +128,22 @@ def run_monthly(config: dict[str, Any], dry_run: bool, env: dict[str, str]) -> i
 
 def run_single(config: dict[str, Any], env: dict[str, str]) -> int:
     script = Path(__file__).with_name("zabbix_trend_rightsize.py")
+    summary_output = str(config_value(config, "summary_output", "rightsize.csv"))
+    wide_output = str(config_value(config, "wide_output", "rightsize_wide.csv"))
+    if config_value(config, "timestamp_output_dir", False):
+        output_dir = timestamped_output_dir(str(config_value(config, "output_dir", "exports_finops")))
+        output_dir.mkdir(parents=True, exist_ok=True)
+        summary_output = place_plain_file_under_dir(output_dir, summary_output)
+        wide_output = place_plain_file_under_dir(output_dir, wide_output)
     command = [
         sys.executable,
         str(script),
         "--days",
         str(config_value(config, "days", 30)),
         "--output",
-        str(config_value(config, "summary_output", "rightsize.csv")),
+        summary_output,
         "--wide-output",
-        str(config_value(config, "wide_output", "rightsize_wide.csv")),
+        wide_output,
         "--timeout",
         str(config_value(config, "timeout", 120)),
         "--min-samples",
@@ -155,9 +179,13 @@ def main() -> int:
         if args.dry_run:
             print("ERROR: --dry-run is only supported with --mode monthly", file=sys.stderr)
             return 2
+        if args.timestamp_output_dir:
+            config = {**config, "timestamp_output_dir": True}
         return run_single(config, env)
     if args.month:
         config = {**config, "month": config_list(config, "month") + args.month}
+    if args.timestamp_output_dir:
+        config = {**config, "timestamp_output_dir": True}
     return run_monthly(config, args.dry_run, env)
 
 

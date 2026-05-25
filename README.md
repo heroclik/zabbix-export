@@ -65,6 +65,7 @@ Edit the config:
   "days": 30,
   "host_batch_size": 10,
   "output_dir": "exports_finops",
+  "timestamp_output_dir": true,
   "summary_output": "finops_summary.csv",
   "wide_output": "finops_wide.csv",
   "raw": false,
@@ -89,9 +90,12 @@ python .\run_zabbix_finops.py
 
 Default outputs:
 
-- `finops_wide.csv`: one row per VM per hourly timestamp
-- `finops_summary.csv`: one row per host/item metric summary
-- `exports_finops/`: per-month, per-batch intermediate files
+- `exports_finops_YYYYMMDD_HHMMSS/finops_wide.csv`: one row per VM per hourly timestamp
+- `exports_finops_YYYYMMDD_HHMMSS/finops_summary.csv`: one row per host/item metric summary
+- `exports_finops_YYYYMMDD_HHMMSS/YYYY-MM/`: per-month, per-batch intermediate files
+
+Set `"timestamp_output_dir": false` if you want to reuse the same
+`output_dir` on every run.
 
 ## Export Specific Calendar Months
 
@@ -171,6 +175,8 @@ python .\run_zabbix_finops.py --mode single
 | `month` | Specific full calendar month to export, `YYYY-MM`; overrides `months` |
 | `days` | Lookback days for single mode |
 | `host_batch_size` | Number of hosts per export job |
+| `output_dir` | Base export directory |
+| `timestamp_output_dir` | Append `YYYYMMDD_HHMMSS` to `output_dir` and place combined CSVs there |
 | `completed_months` | Exclude the current partial month when true |
 | `min_samples` | Minimum hourly trend samples before low/high signals are trusted |
 | `raw` | Also export raw hourly metric rows per batch |
@@ -198,6 +204,7 @@ python .\run_finops_export_batches.py `
   --month 2026-02 `
   --host-batch-size 10 `
   --output-dir .\exports_finops `
+  --timestamp-output-dir `
   --combined-output .\finops_summary.csv `
   --combined-wide-output .\finops_wide.csv `
   --resume

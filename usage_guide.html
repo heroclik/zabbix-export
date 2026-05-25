@@ -357,6 +357,7 @@ notepad .\zabbix_finops_config.json</code></pre>
   "days": 30,
   "host_batch_size": 10,
   "output_dir": "exports_finops",
+  "timestamp_output_dir": true,
   "summary_output": "finops_summary.csv",
   "wide_output": "finops_wide.csv",
   "raw": false,
@@ -399,6 +400,7 @@ dry-run 2025-12 batch05 hosts=4</code></pre>
 
       <h3>รันจริงแบบ 6 เดือน แบ่งรายเดือนและ batch host</h3>
       <pre><code>python .\run_zabbix_finops.py</code></pre>
+      <p>ค่า default จะสร้างโฟลเดอร์ใหม่ตามเวลาที่รัน เช่น <code>exports_finops_20260526_003012</code> เพื่อไม่ให้ export รอบใหม่ทับรอบเก่า</p>
 
       <h3>เลือกดึงเต็มเดือนที่ต้องการ</h3>
       <p>ใช้ <code>--month YYYY-MM</code> ได้เลย script จะหา last day ของเดือนให้อัตโนมัติ ไม่ว่าจะเป็น 28, 29, 30 หรือ 31 วัน</p>
@@ -410,9 +412,9 @@ python .\run_zabbix_finops.py --month 2026-02</code></pre>
       <pre><code>"month": "2026-02"</code></pre>
       <p>ไฟล์ที่ได้หลัก ๆ คือ:</p>
       <ul>
-        <li><code>finops_wide.csv</code> ข้อมูล wide format หนึ่งแถวต่อ VM ต่อ timestamp ใช้กับ Excel/Power BI ได้ง่าย</li>
-        <li><code>finops_summary.csv</code> summary แบบ metric-per-row มี p95/p99/signal สำหรับวิเคราะห์เพิ่ม</li>
-        <li><code>exports_finops\</code> ไฟล์แยกรายเดือนและ batch</li>
+        <li><code>exports_finops_YYYYMMDD_HHMMSS\finops_wide.csv</code> ข้อมูล wide format หนึ่งแถวต่อ VM ต่อ timestamp ใช้กับ Excel/Power BI ได้ง่าย</li>
+        <li><code>exports_finops_YYYYMMDD_HHMMSS\finops_summary.csv</code> summary แบบ metric-per-row มี p95/p99/signal สำหรับวิเคราะห์เพิ่ม</li>
+        <li><code>exports_finops_YYYYMMDD_HHMMSS\YYYY-MM\</code> ไฟล์แยกรายเดือนและ batch</li>
       </ul>
 
       <h3>รันแบบเร็ว ดึง 30 วันครั้งเดียว</h3>

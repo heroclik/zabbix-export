@@ -8,6 +8,7 @@
   "days": 30,
   "host_batch_size": 10,
   "output_dir": "exports_finops",
+  "timestamp_output_dir": true,
   "summary_output": "finops_summary.csv",
   "wide_output": "finops_wide.csv",
   "raw": false,
