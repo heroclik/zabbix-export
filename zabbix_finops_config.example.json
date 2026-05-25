@@ -4,6 +4,7 @@
   "host_group": "Linux servers",
   "hosts_file": "",
   "months": 6,
+  "month": "",
   "days": 30,
   "host_batch_size": 10,
   "output_dir": "exports_finops",

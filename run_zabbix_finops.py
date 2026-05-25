@@ -22,6 +22,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--config", default=DEFAULT_CONFIG, help="Config JSON path")
     parser.add_argument("--mode", choices=("monthly", "single"), default="monthly", help="monthly=batch export, single=one range export")
+    parser.add_argument("--month", action="append", default=[], help="Specific calendar month to export in monthly mode, YYYY-MM. Can repeat")
     parser.add_argument("--dry-run", action="store_true", help="Show planned monthly jobs without exporting")
     return parser.parse_args()
 
@@ -60,13 +61,21 @@ def add_if(command: list[str], flag: str, value: Any) -> None:
         command.extend([flag, str(value)])
 
 
+def config_list(config: dict[str, Any], key: str) -> list[str]:
+    value = config.get(key)
+    if value in (None, ""):
+        return []
+    if isinstance(value, list):
+        return [str(item) for item in value if item not in (None, "")]
+    return [str(value)]
+
+
 def run_monthly(config: dict[str, Any], dry_run: bool, env: dict[str, str]) -> int:
     script = Path(__file__).with_name("run_finops_export_batches.py")
+    selected_months = config_list(config, "month") + config_list(config, "months_selected")
     command = [
         sys.executable,
         str(script),
-        "--months",
-        str(config_value(config, "months", 6)),
         "--host-batch-size",
         str(config_value(config, "host_batch_size", 10)),
         "--output-dir",
@@ -80,6 +89,11 @@ def run_monthly(config: dict[str, Any], dry_run: bool, env: dict[str, str]) -> i
         "--min-samples",
         str(config_value(config, "min_samples", 500)),
     ]
+    if selected_months:
+        for month in selected_months:
+            command.extend(["--month", str(month)])
+    else:
+        command.extend(["--months", str(config_value(config, "months", 6))])
     add_if(command, "--hosts-file", config.get("hosts_file"))
     add_if(command, "--group", config.get("host_group"))
     if config_value(config, "raw", False):
@@ -142,6 +156,8 @@ def main() -> int:
             print("ERROR: --dry-run is only supported with --mode monthly", file=sys.stderr)
             return 2
         return run_single(config, env)
+    if args.month:
+        config = {**config, "month": config_list(config, "month") + args.month}
     return run_monthly(config, args.dry_run, env)
 
 

@@ -353,6 +353,7 @@ notepad .\zabbix_finops_config.json</code></pre>
   "host_group": "Linux servers",
   "hosts_file": "",
   "months": 6,
+  "month": "",
   "days": 30,
   "host_batch_size": 10,
   "output_dir": "exports_finops",
@@ -398,6 +399,15 @@ dry-run 2025-12 batch05 hosts=4</code></pre>
 
       <h3>รันจริงแบบ 6 เดือน แบ่งรายเดือนและ batch host</h3>
       <pre><code>python .\run_zabbix_finops.py</code></pre>
+
+      <h3>เลือกดึงเต็มเดือนที่ต้องการ</h3>
+      <p>ใช้ <code>--month YYYY-MM</code> ได้เลย script จะหา last day ของเดือนให้อัตโนมัติ ไม่ว่าจะเป็น 28, 29, 30 หรือ 31 วัน</p>
+      <pre><code>python .\run_zabbix_finops.py --month 2026-02 --dry-run
+python .\run_zabbix_finops.py --month 2026-02</code></pre>
+      <p>ถ้าต้องการหลายเดือนให้ใส่ซ้ำ:</p>
+      <pre><code>python .\run_zabbix_finops.py --month 2026-01 --month 2026-02 --month 2026-03</code></pre>
+      <p>หรือใส่ใน config:</p>
+      <pre><code>"month": "2026-02"</code></pre>
       <p>ไฟล์ที่ได้หลัก ๆ คือ:</p>
       <ul>
         <li><code>finops_wide.csv</code> ข้อมูล wide format หนึ่งแถวต่อ VM ต่อ timestamp ใช้กับ Excel/Power BI ได้ง่าย</li>

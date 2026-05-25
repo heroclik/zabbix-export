@@ -61,6 +61,7 @@ Edit the config:
   "host_group": "Linux servers",
   "hosts_file": "",
   "months": 6,
+  "month": "",
   "days": 30,
   "host_batch_size": 10,
   "output_dir": "exports_finops",
@@ -91,6 +92,31 @@ Default outputs:
 - `finops_wide.csv`: one row per VM per hourly timestamp
 - `finops_summary.csv`: one row per host/item metric summary
 - `exports_finops/`: per-month, per-batch intermediate files
+
+## Export Specific Calendar Months
+
+Use `--month YYYY-MM` when you want exact full calendar months. The script
+calculates the correct last day automatically, including 28, 29, 30, and 31 day
+months.
+
+```powershell
+python .\run_zabbix_finops.py --month 2026-02 --dry-run
+python .\run_zabbix_finops.py --month 2026-02
+```
+
+You can repeat it:
+
+```powershell
+python .\run_zabbix_finops.py --month 2026-01 --month 2026-02 --month 2026-03
+```
+
+Or set it in `zabbix_finops_config.json`:
+
+```json
+"month": "2026-02"
+```
+
+When `month` or `--month` is set, it takes priority over `months`.
 
 ## Export Selected Hosts
 
@@ -142,6 +168,7 @@ python .\run_zabbix_finops.py --mode single
 | `host_group` | Host group to export when `hosts_file` is empty |
 | `hosts_file` | Optional file with one Zabbix host name per line |
 | `months` | Calendar months to export in monthly mode |
+| `month` | Specific full calendar month to export, `YYYY-MM`; overrides `months` |
 | `days` | Lookback days for single mode |
 | `host_batch_size` | Number of hosts per export job |
 | `completed_months` | Exclude the current partial month when true |
@@ -168,7 +195,7 @@ Run the batch runner directly:
 
 ```powershell
 python .\run_finops_export_batches.py `
-  --months 6 `
+  --month 2026-02 `
   --host-batch-size 10 `
   --output-dir .\exports_finops `
   --combined-output .\finops_summary.csv `
@@ -217,4 +244,3 @@ exporter with `--rules`.
 - Rows with too few hourly samples are marked `insufficient_data` in the
   summary output. For six-month right-sizing, use enough retained trend data to
   cover normal workload cycles.
-

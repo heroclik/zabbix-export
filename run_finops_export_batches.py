@@ -30,6 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--group", action="append", default=[], help="Host group filter when reading hosts from Zabbix")
     parser.add_argument("--hosts-file", help="Optional text file with one host name per line")
     parser.add_argument("--months", type=int, default=6, help="Number of calendar months to export")
+    parser.add_argument("--month", action="append", default=[], help="Specific calendar month to export, YYYY-MM. Can repeat")
     parser.add_argument("--completed-months", action="store_true", help="Use only completed months, excluding current month")
     parser.add_argument("--host-batch-size", type=int, default=10, help="Number of hosts per export job")
     parser.add_argument("--output-dir", default="exports_finops", help="Directory for per-batch output files")
@@ -75,6 +76,24 @@ def month_ranges(months: int, completed_months: bool) -> list[tuple[str, str, st
             end = today
         ranges.append((start.strftime("%Y-%m"), start.isoformat(), end.isoformat()))
     return ranges
+
+
+def specific_month_ranges(month_values: list[str]) -> list[tuple[str, str, str]]:
+    ranges: list[tuple[str, str, str]] = []
+    seen: set[str] = set()
+    for value in month_values:
+        try:
+            start = dt.datetime.strptime(value, "%Y-%m").date()
+        except ValueError as exc:
+            raise ValueError(f"--month must use YYYY-MM format, got {value!r}") from exc
+        label = start.strftime("%Y-%m")
+        if label in seen:
+            continue
+        seen.add(label)
+        last_day = calendar.monthrange(start.year, start.month)[1]
+        end = dt.date(start.year, start.month, last_day)
+        ranges.append((label, start.isoformat(), end.isoformat()))
+    return sorted(ranges, key=lambda item: item[0])
 
 
 def read_hosts_file(path: str) -> list[str]:
@@ -259,7 +278,7 @@ def main() -> int:
             return 1
 
         host_batches = chunks(hosts, args.host_batch_size)
-        ranges = month_ranges(args.months, args.completed_months)
+        ranges = specific_month_ranges(args.month) if args.month else month_ranges(args.months, args.completed_months)
         env = build_env(args)
         summary_paths: list[Path] = []
         wide_paths: list[Path] = []
