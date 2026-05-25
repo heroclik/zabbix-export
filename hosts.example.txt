@@ -1,0 +1,6 @@
+# One Zabbix host name or visible name per line.
+# Lines starting with # are ignored.
+#
+# vm01
+# vm02
+# app-prod-01

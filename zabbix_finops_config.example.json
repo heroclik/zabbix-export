@@ -1,0 +1,17 @@
+{
+  "zabbix_url": "https://zabbix.example.com",
+  "zabbix_token": "your-api-token",
+  "host_group": "Linux servers",
+  "hosts_file": "",
+  "months": 6,
+  "days": 30,
+  "host_batch_size": 10,
+  "output_dir": "exports_finops",
+  "summary_output": "finops_summary.csv",
+  "wide_output": "finops_wide.csv",
+  "raw": false,
+  "resume": true,
+  "completed_months": false,
+  "timeout": 120,
+  "min_samples": 500
+}

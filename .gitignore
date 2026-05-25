@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+
+.venv/
+venv/
+
+zabbix_finops_config.json
+hosts.txt
+
+exports_finops/
+exports_*/
+*.csv
+*.log
+
+.env
+*.local.json

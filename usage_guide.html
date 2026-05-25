@@ -1,0 +1,582 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zabbix FinOps Export - คู่มือใช้งาน</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f7f9;
+      --surface: #ffffff;
+      --surface-2: #eef3f8;
+      --text: #1c2430;
+      --muted: #5d6b7b;
+      --line: #d8e0e8;
+      --brand: #0f766e;
+      --brand-dark: #115e59;
+      --accent: #b45309;
+      --code-bg: #111827;
+      --code-text: #e5e7eb;
+      --ok-bg: #e8f5ee;
+      --ok-text: #166534;
+      --warn-bg: #fff7ed;
+      --warn-text: #9a3412;
+      --radius: 8px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+      line-height: 1.65;
+    }
+
+    header {
+      background: linear-gradient(180deg, #ffffff 0%, #eaf2f1 100%);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .wrap {
+      width: min(1120px, calc(100% - 32px));
+      margin: 0 auto;
+    }
+
+    .hero {
+      padding: 44px 0 30px;
+    }
+
+    .eyebrow {
+      color: var(--brand-dark);
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: .02em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 8px 0 12px;
+      font-size: clamp(32px, 5vw, 52px);
+      line-height: 1.1;
+      letter-spacing: 0;
+    }
+
+    .lead {
+      max-width: 760px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      padding: 16px 0 22px;
+    }
+
+    nav a {
+      display: inline-flex;
+      align-items: center;
+      min-height: 36px;
+      padding: 6px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: var(--surface);
+      color: var(--text);
+      text-decoration: none;
+      font-size: 14px;
+    }
+
+    main {
+      padding: 28px 0 56px;
+    }
+
+    section {
+      margin: 0 0 28px;
+      padding: 24px;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 22px 0 10px;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 0 0 14px;
+    }
+
+    ul,
+    ol {
+      margin: 0 0 16px 22px;
+      padding: 0;
+    }
+
+    li {
+      margin: 5px 0;
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 5px;
+      background: var(--surface-2);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: .95em;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 12px 0 18px;
+      padding: 16px;
+      border-radius: var(--radius);
+      background: var(--code-bg);
+      color: var(--code-text);
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    pre code {
+      padding: 0;
+      background: transparent;
+      color: inherit;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 18px;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      padding: 10px 12px;
+      border: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+      white-space: nowrap;
+    }
+
+    th {
+      background: var(--surface-2);
+      font-weight: 700;
+    }
+
+    .table-scroll {
+      overflow-x: auto;
+      border-radius: var(--radius);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .box {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      background: #fbfcfd;
+    }
+
+    .box strong {
+      display: block;
+      margin-bottom: 6px;
+      color: var(--brand-dark);
+      font-size: 16px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      min-height: 26px;
+      padding: 3px 9px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .badge.ok {
+      background: var(--ok-bg);
+      color: var(--ok-text);
+    }
+
+    .badge.warn {
+      background: var(--warn-bg);
+      color: var(--warn-text);
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 10px;
+      margin: 14px 0 4px;
+    }
+
+    .step {
+      min-height: 96px;
+      padding: 14px;
+      border-radius: var(--radius);
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+    }
+
+    .step span {
+      display: inline-grid;
+      place-items: center;
+      width: 26px;
+      height: 26px;
+      margin-bottom: 8px;
+      border-radius: 50%;
+      background: var(--brand);
+      color: #ffffff;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .note {
+      margin: 12px 0;
+      padding: 12px 14px;
+      border-left: 4px solid var(--accent);
+      background: var(--warn-bg);
+      color: var(--warn-text);
+      border-radius: 0 var(--radius) var(--radius) 0;
+    }
+
+    footer {
+      padding: 20px 0 36px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    @media (max-width: 860px) {
+      .grid,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+
+      section {
+        padding: 18px;
+      }
+
+      th,
+      td {
+        white-space: normal;
+      }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap hero">
+      <div class="eyebrow">Zabbix FinOps Export</div>
+      <h1>คู่มือใช้งาน Script ดึง Trend เพื่อทำ Right-size</h1>
+      <p class="lead">ใช้สำหรับดึงข้อมูล CPU, Memory, Disk, Network และ capacity จาก Zabbix API แล้วออกเป็น CSV สำหรับวิเคราะห์ VM sizing และ FinOps</p>
+    </div>
+    <nav class="wrap" aria-label="สารบัญ">
+      <a href="#overview">ภาพรวม</a>
+      <a href="#setup">ติดตั้ง</a>
+      <a href="#config">ตั้งค่า</a>
+      <a href="#run">วิธีรัน</a>
+      <a href="#output">ตัวอย่างข้อมูล</a>
+      <a href="#troubleshoot">แก้ปัญหา</a>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <section id="overview">
+      <h2>ภาพรวมไฟล์ที่ต้องรู้</h2>
+      <div class="grid">
+        <div class="box">
+          <strong>run_zabbix_finops.py</strong>
+          ตัวหลักที่แนะนำให้ใช้ อ่านค่าจาก <code>zabbix_finops_config.json</code> แล้วสั่ง export ให้
+        </div>
+        <div class="box">
+          <strong>run_finops_export_batches.py</strong>
+          ใช้แบ่ง host เป็น batch และแบ่งช่วงข้อมูลย้อนหลังเป็นรายเดือน เหมาะกับ 44 VM / 6 เดือน
+        </div>
+        <div class="box">
+          <strong>zabbix_trend_rightsize.py</strong>
+          ตัวดึงข้อมูล trend จาก Zabbix API จริง ใช้ตรง ๆ ได้ถ้าต้องการ export รอบเดียว
+        </div>
+      </div>
+
+      <h3>Flow การทำงาน</h3>
+      <div class="flow" aria-label="workflow">
+        <div class="step"><span>1</span><br>ใส่ URL และ token ใน config</div>
+        <div class="step"><span>2</span><br>เลือก group หรือ hosts.txt</div>
+        <div class="step"><span>3</span><br>รัน dry-run เพื่อตรวจ job</div>
+        <div class="step"><span>4</span><br>รัน export จริง</div>
+        <div class="step"><span>5</span><br>เปิด CSV ไปวิเคราะห์ right-size</div>
+      </div>
+    </section>
+
+    <section id="setup">
+      <h2>1. ติดตั้งก่อนใช้งาน</h2>
+      <p>เปิด PowerShell ที่โฟลเดอร์ project: <code>E:\zabbix-export</code></p>
+      <pre><code>cd E:\zabbix-export
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt</code></pre>
+      <p>ถ้าเคยติดตั้งแล้ว ครั้งถัดไปใช้แค่:</p>
+      <pre><code>cd E:\zabbix-export
+.\.venv\Scripts\Activate.ps1</code></pre>
+    </section>
+
+    <section id="config">
+      <h2>2. สร้างและแก้ config</h2>
+      <p>คัดลอก config ตัวอย่างเป็นไฟล์ใช้งานจริง:</p>
+      <pre><code>Copy-Item .\zabbix_finops_config.example.json .\zabbix_finops_config.json
+notepad .\zabbix_finops_config.json</code></pre>
+
+      <h3>ตัวอย่าง config สำหรับดึงทั้ง group</h3>
+      <pre><code>{
+  "zabbix_url": "https://zabbix.example.com/",
+  "zabbix_token": "ใส่-token-จริงตรงนี้",
+  "host_group": "Linux servers",
+  "hosts_file": "",
+  "months": 6,
+  "days": 30,
+  "host_batch_size": 10,
+  "output_dir": "exports_finops",
+  "summary_output": "finops_summary.csv",
+  "wide_output": "finops_wide.csv",
+  "raw": false,
+  "resume": true,
+  "completed_months": false,
+  "timeout": 120,
+  "min_samples": 500
+}</code></pre>
+
+      <h3>ตัวอย่าง config สำหรับเลือกเฉพาะ VM ใน hosts.txt</h3>
+      <p>เหมาะกับกรณีมีรายชื่อ 44 VM ที่ต้องการดึงเท่านั้น</p>
+      <pre><code>Copy-Item .\hosts.example.txt .\hosts.txt
+notepad .\hosts.txt</code></pre>
+      <p>ตัวอย่าง <code>hosts.txt</code>:</p>
+      <pre><code>app-prod-01
+app-prod-02
+db-prod-01
+finops-tools-dev</code></pre>
+      <p>จากนั้นแก้ใน config:</p>
+      <pre><code>"hosts_file": "hosts.txt",
+"host_group": ""</code></pre>
+
+      <div class="note">
+        ถ้าใช้ <code>hosts_file</code> script จะดึงเฉพาะ host ที่อยู่ในไฟล์นั้น ถ้าไม่ใช้ ให้ปล่อยเป็นค่าว่างแล้วใช้ <code>host_group</code> แทน
+      </div>
+    </section>
+
+    <section id="run">
+      <h2>3. วิธีรันที่แนะนำ</h2>
+
+      <h3>เช็คก่อนว่าจะแบ่ง job ยังไง</h3>
+      <pre><code>python .\run_zabbix_finops.py --dry-run</code></pre>
+      <p>ตัวอย่างผลลัพธ์ที่ควรเห็น:</p>
+      <pre><code>hosts=44 host_batches=5 months=6 jobs=30
+dry-run 2025-12 batch01 hosts=10
+dry-run 2025-12 batch02 hosts=10
+dry-run 2025-12 batch03 hosts=10
+dry-run 2025-12 batch04 hosts=10
+dry-run 2025-12 batch05 hosts=4</code></pre>
+
+      <h3>รันจริงแบบ 6 เดือน แบ่งรายเดือนและ batch host</h3>
+      <pre><code>python .\run_zabbix_finops.py</code></pre>
+      <p>ไฟล์ที่ได้หลัก ๆ คือ:</p>
+      <ul>
+        <li><code>finops_wide.csv</code> ข้อมูล wide format หนึ่งแถวต่อ VM ต่อ timestamp ใช้กับ Excel/Power BI ได้ง่าย</li>
+        <li><code>finops_summary.csv</code> summary แบบ metric-per-row มี p95/p99/signal สำหรับวิเคราะห์เพิ่ม</li>
+        <li><code>exports_finops\</code> ไฟล์แยกรายเดือนและ batch</li>
+      </ul>
+
+      <h3>รันแบบเร็ว ดึง 30 วันครั้งเดียว</h3>
+      <pre><code>python .\run_zabbix_finops.py --mode single</code></pre>
+
+      <h3>กรณีอยากรัน exporter ตรง ๆ</h3>
+      <pre><code>$env:ZABBIX_URL = "https://zabbix.example.com/"
+$env:ZABBIX_TOKEN = "ใส่-token-จริงตรงนี้"
+
+python .\zabbix_trend_rightsize.py `
+  --group "Linux servers" `
+  --days 30 `
+  --output rightsize.csv `
+  --wide-output rightsize_wide.csv</code></pre>
+    </section>
+
+    <section id="output">
+      <h2>4. ตัวอย่างข้อมูลที่ออกมา</h2>
+      <p>ไฟล์ที่ใช้ดูง่ายที่สุดคือ <code>finops_wide.csv</code></p>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>vm_name</th>
+              <th>ip</th>
+              <th>vcpu</th>
+              <th>memory_total_gb</th>
+              <th>disk_total_gb</th>
+              <th>timestamp</th>
+              <th>cpu_min</th>
+              <th>cpu_max</th>
+              <th>cpu_avg</th>
+              <th>memory_min</th>
+              <th>memory_max</th>
+              <th>memory_avg</th>
+              <th>disk_min</th>
+              <th>disk_max</th>
+              <th>disk_avg</th>
+              <th>network_in</th>
+              <th>network_out</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>app-prod-01</td>
+              <td>10.10.1.21</td>
+              <td>4</td>
+              <td>16</td>
+              <td>100</td>
+              <td>2026-05-01T00:00:00</td>
+              <td>3.2</td>
+              <td>42.8</td>
+              <td>12.4</td>
+              <td>45.1</td>
+              <td>62.7</td>
+              <td>51.8</td>
+              <td>38.4</td>
+              <td>38.6</td>
+              <td>38.5</td>
+              <td>183424</td>
+              <td>90231</td>
+            </tr>
+            <tr>
+              <td>db-prod-01</td>
+              <td>10.10.2.11</td>
+              <td>8</td>
+              <td>32</td>
+              <td>500</td>
+              <td>2026-05-01T00:00:00</td>
+              <td>12.9</td>
+              <td>78.4</td>
+              <td>36.2</td>
+              <td>68.5</td>
+              <td>84.9</td>
+              <td>73.4</td>
+              <td>71.2</td>
+              <td>71.4</td>
+              <td>71.3</td>
+              <td>942112</td>
+              <td>558120</td>
+            </tr>
+            <tr>
+              <td>finops-tools-dev</td>
+              <td></td>
+              <td>2</td>
+              <td>1.868458</td>
+              <td>19.925762</td>
+              <td>2026-05-25T18:00:00</td>
+              <td>1.643173</td>
+              <td>2.266478</td>
+              <td>1.883019</td>
+              <td>35.982687</td>
+              <td>37.459397</td>
+              <td>36.882259</td>
+              <td>34.882402</td>
+              <td>34.888107</td>
+              <td>34.884435</td>
+              <td>1942</td>
+              <td>2730</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>ความหมายคอลัมน์สำคัญ</h3>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>คอลัมน์</th>
+              <th>ความหมาย</th>
+              <th>ใช้ดูอะไร</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>cpu_min/cpu_max/cpu_avg</code></td>
+              <td>CPU utilization ต่อชั่วโมงเป็นเปอร์เซ็นต์</td>
+              <td>หา VM ที่ CPU ต่ำต่อเนื่องหรือ peak สูงผิดปกติ</td>
+            </tr>
+            <tr>
+              <td><code>memory_min/memory_max/memory_avg</code></td>
+              <td>Memory used ต่อชั่วโมงเป็นเปอร์เซ็นต์</td>
+              <td>เช็คว่าลด RAM ได้ไหม หรือมี risk memory เต็ม</td>
+            </tr>
+            <tr>
+              <td><code>disk_min/disk_max/disk_avg</code></td>
+              <td>Disk used ต่อชั่วโมงเป็นเปอร์เซ็นต์</td>
+              <td>ดูพื้นที่ disk และ growth pattern</td>
+            </tr>
+            <tr>
+              <td><code>network_in/network_out</code></td>
+              <td>Traffic เฉลี่ยต่อชั่วโมงจาก Zabbix trend</td>
+              <td>ดู workload ที่ network ต่ำมากหรือมี traffic สูง</td>
+            </tr>
+            <tr>
+              <td><code>vcpu/memory_total_gb/disk_total_gb</code></td>
+              <td>Capacity ที่ดึงจาก Zabbix item ล่าสุด</td>
+              <td>ใช้เทียบว่าควรลดจาก size เดิมลงแค่ไหน</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>ตัวอย่างอ่านผลเบื้องต้น</h3>
+      <ul>
+        <li><span class="badge ok">Candidate</span> CPU avg ต่ำ, CPU max ต่ำ, memory avg ต่ำ และ network ต่ำต่อเนื่อง มีโอกาส downsize</li>
+        <li><span class="badge warn">ระวัง</span> CPU avg ต่ำแต่ CPU max สูง แปลว่าอาจมี peak เป็นช่วง ๆ ควรดู summary p95/p99 เพิ่ม</li>
+        <li><span class="badge warn">ระวัง</span> Memory max สูงกว่า 80-85% ไม่ควรลด RAM ง่าย ๆ</li>
+        <li><span class="badge warn">ระวัง</span> Disk used สูงหรือโตเร็ว ไม่เกี่ยวกับลด CPU/RAM โดยตรง แต่มี risk storage เต็ม</li>
+      </ul>
+    </section>
+
+    <section id="troubleshoot">
+      <h2>5. ปัญหาที่เจอบ่อย</h2>
+      <h3>ไม่มีไฟล์ <code>zabbix_finops_config.json</code></h3>
+      <pre><code>Copy-Item .\zabbix_finops_config.example.json .\zabbix_finops_config.json</code></pre>
+
+      <h3>IP ว่างใน output</h3>
+      <p>แปลว่า host นั้นไม่มี interface ใน Zabbix host object หรือใช้ active check/discovery แบบไม่ได้ผูก interface ต้องเพิ่ม interface ใน Zabbix หรือ map IP จาก CMDB/cloud inventory เพิ่ม</p>
+
+      <h3>ข้อมูลน้อยและขึ้น <code>insufficient_data</code></h3>
+      <p>Zabbix มี trend data ไม่พอในช่วงที่ดึง หรือ retention สั้นเกินไป สำหรับ 6 เดือนแนะนำให้มีหลายร้อย hourly samples ต่อ VM</p>
+
+      <h3>อยากดูว่ามี job อะไรจะถูกรัน แต่ยังไม่อยากยิง API หนัก</h3>
+      <pre><code>python .\run_zabbix_finops.py --dry-run</code></pre>
+
+      <h3>อยากรันต่อจากรอบที่เคยล้ม</h3>
+      <p>ใน config ให้ตั้ง <code>"resume": true</code> ไว้ script จะ skip batch file ที่มีอยู่แล้วและไม่ว่าง</p>
+    </section>
+  </main>
+
+  <footer class="wrap">
+    เปิดไฟล์นี้ได้โดยตรงจาก browser: <code>E:\zabbix-export\usage_guide.html</code>
+  </footer>
+</body>
+</html>

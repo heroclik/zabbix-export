@@ -1,0 +1,52 @@
+[
+  {
+    "metric": "cpu_util_pct",
+    "include": [
+      "^key:system\\.cpu\\.util$",
+      "^name:.*\\b(cpu|processor).*(utilization|util|usage|busy)\\b"
+    ],
+    "exclude": [
+      "key:.*\\[,idle\\]",
+      "name:\\bidle\\b"
+    ],
+    "unit": "percent",
+    "transform": "identity"
+  },
+  {
+    "metric": "memory_used_pct",
+    "include": [
+      "^key:vm\\.memory\\.utilization(\\[.*\\])?$",
+      "^key:vm\\.memory\\.size\\[pused\\]$"
+    ],
+    "exclude": [],
+    "unit": "percent",
+    "transform": "identity"
+  },
+  {
+    "metric": "memory_used_pct",
+    "include": [
+      "^key:vm\\.memory\\.size\\[pavailable\\]$"
+    ],
+    "exclude": [],
+    "unit": "percent",
+    "transform": "free_percent_to_used_percent"
+  },
+  {
+    "metric": "disk_used_pct",
+    "include": [
+      "^key:vfs\\.fs\\.size\\[.*,pused\\]$"
+    ],
+    "exclude": [],
+    "unit": "percent",
+    "transform": "identity"
+  },
+  {
+    "metric": "disk_used_pct",
+    "include": [
+      "^key:vfs\\.fs\\.size\\[.*,pfree\\]$"
+    ],
+    "exclude": [],
+    "unit": "percent",
+    "transform": "free_percent_to_used_percent"
+  }
+]
