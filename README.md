@@ -30,6 +30,7 @@ Capacity fields are read from Zabbix items when available:
 | `run_zabbix_finops.py` | Recommended config-driven runner |
 | `run_finops_export_batches.py` | Batch runner for many VMs and monthly ranges |
 | `zabbix_trend_rightsize.py` | Core Zabbix API trend exporter |
+| `finops_html_report.py` | HTML monthly report generator |
 | `zabbix_finops_config.example.json` | Example config file |
 | `hosts.example.txt` | Example selected-host list |
 | `metric_rules.example.json` | Example custom metric matching rules |
@@ -68,7 +69,9 @@ Edit the config:
   "timestamp_output_dir": true,
   "summary_output": "finops_summary.csv",
   "wide_output": "finops_wide.csv",
+  "report_output": "finops_report.html",
   "raw": false,
+  "no_report": false,
   "resume": true,
   "completed_months": false,
   "timeout": 120,
@@ -92,10 +95,21 @@ Default outputs:
 
 - `exports_finops_YYYYMMDD_HHMMSS/finops_wide.csv`: one row per VM per hourly timestamp
 - `exports_finops_YYYYMMDD_HHMMSS/finops_summary.csv`: one row per host/item metric summary
+- `exports_finops_YYYYMMDD_HHMMSS/finops_report.html`: monthly HTML report
 - `exports_finops_YYYYMMDD_HHMMSS/YYYY-MM/`: per-month, per-batch intermediate files
 
 Set `"timestamp_output_dir": false` if you want to reuse the same
 `output_dir` on every run.
+
+The HTML report groups results by calendar month and includes:
+
+- monthly VM count and hourly sample count
+- coverage percentage against calendar-month hours
+- average, p95, and peak CPU, memory, disk, and network metrics
+- p99 CPU and memory checks in the right-size status logic
+- downsize candidate and capacity risk counts
+- per-VM monthly table with capacity, utilization, network in/out, and status
+- sample-quality aware status so low-coverage months are marked `insufficient data`
 
 ## Export Specific Calendar Months
 
@@ -177,6 +191,8 @@ python .\run_zabbix_finops.py --mode single
 | `host_batch_size` | Number of hosts per export job |
 | `output_dir` | Base export directory |
 | `timestamp_output_dir` | Append `YYYYMMDD_HHMMSS` to `output_dir` and place combined CSVs there |
+| `report_output` | HTML monthly report path |
+| `no_report` | Disable HTML report generation when true |
 | `completed_months` | Exclude the current partial month when true |
 | `min_samples` | Minimum hourly trend samples before low/high signals are trusted |
 | `raw` | Also export raw hourly metric rows per batch |
@@ -207,6 +223,7 @@ python .\run_finops_export_batches.py `
   --timestamp-output-dir `
   --combined-output .\finops_summary.csv `
   --combined-wide-output .\finops_wide.csv `
+  --report-output .\finops_report.html `
   --resume
 ```
 

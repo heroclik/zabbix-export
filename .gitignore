@@ -10,6 +10,7 @@ hosts.txt
 exports_finops/
 exports_*/
 *.csv
+finops_report*.html
 *.log
 
 .env

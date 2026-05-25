@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+from finops_html_report import generate_html_report
 from zabbix_trend_rightsize import ZabbixClient, get_group_ids, get_hosts
 
 
@@ -37,6 +38,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--timestamp-output-dir", action="store_true", help="Append YYYYMMDD_HHMMSS to output directory and place combined CSVs there")
     parser.add_argument("--combined-output", default="finops_combined_summary.csv", help="Combined summary CSV path")
     parser.add_argument("--combined-wide-output", default="finops_combined_wide.csv", help="Combined wide hourly CSV path")
+    parser.add_argument("--report-output", default="finops_report.html", help="Combined HTML monthly report path")
     parser.add_argument(
         "--exporter",
         default=str(Path(__file__).with_name("zabbix_trend_rightsize.py")),
@@ -44,6 +46,7 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--raw", action="store_true", help="Also export raw hourly trend CSV per batch")
     parser.add_argument("--no-wide", action="store_true", help="Disable wide hourly CSV output")
+    parser.add_argument("--no-report", action="store_true", help="Disable HTML report generation")
     parser.add_argument("--resume", action="store_true", help="Skip per-batch summary files that already exist and are non-empty")
     parser.add_argument("--dry-run", action="store_true", help="Print planned jobs without running exporter")
     parser.add_argument("--timeout", type=int, default=120, help="HTTP timeout passed to exporter")
@@ -268,6 +271,7 @@ def apply_timestamp_output_dir(args: argparse.Namespace) -> None:
     args.output_dir = str(output_dir)
     args.combined_output = place_plain_file_under_dir(output_dir, args.combined_output)
     args.combined_wide_output = place_plain_file_under_dir(output_dir, args.combined_wide_output)
+    args.report_output = place_plain_file_under_dir(output_dir, args.report_output)
 
 
 def build_env(args: argparse.Namespace) -> dict[str, str]:
@@ -329,6 +333,12 @@ def main() -> int:
         if not args.no_wide:
             combined_wide_rows = combine_csv(wide_paths, args.combined_wide_output)
             print(f"combined {combined_wide_rows} wide rows -> {args.combined_wide_output}", flush=True)
+        if not args.no_report:
+            if args.no_wide:
+                print("HTML report skipped because --no-wide was used", flush=True)
+            else:
+                report_rows = generate_html_report(args.combined_output, args.combined_wide_output, args.report_output)
+                print(f"generated HTML report from {report_rows} wide rows -> {args.report_output}", flush=True)
         return 0
     except (OSError, ValueError, subprocess.CalledProcessError) as exc:
         print(f"ERROR: {exc}", file=sys.stderr)

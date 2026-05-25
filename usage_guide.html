@@ -360,7 +360,9 @@ notepad .\zabbix_finops_config.json</code></pre>
   "timestamp_output_dir": true,
   "summary_output": "finops_summary.csv",
   "wide_output": "finops_wide.csv",
+  "report_output": "finops_report.html",
   "raw": false,
+  "no_report": false,
   "resume": true,
   "completed_months": false,
   "timeout": 120,
@@ -414,6 +416,7 @@ python .\run_zabbix_finops.py --month 2026-02</code></pre>
       <ul>
         <li><code>exports_finops_YYYYMMDD_HHMMSS\finops_wide.csv</code> ข้อมูล wide format หนึ่งแถวต่อ VM ต่อ timestamp ใช้กับ Excel/Power BI ได้ง่าย</li>
         <li><code>exports_finops_YYYYMMDD_HHMMSS\finops_summary.csv</code> summary แบบ metric-per-row มี p95/p99/signal สำหรับวิเคราะห์เพิ่ม</li>
+        <li><code>exports_finops_YYYYMMDD_HHMMSS\finops_report.html</code> dashboard สรุปรายเดือน เปิดดูใน browser ได้ทันที มี p95, coverage, candidate/risk status และใช้ p99 ช่วยเช็ค risk</li>
         <li><code>exports_finops_YYYYMMDD_HHMMSS\YYYY-MM\</code> ไฟล์แยกรายเดือนและ batch</li>
       </ul>
 
