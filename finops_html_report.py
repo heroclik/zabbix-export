@@ -324,9 +324,165 @@ def render_month_summary_row(month: str, rows: list[dict[str, Any]]) -> str:
         <div>{fmt_number(cards["memory_p95"], "%")} memory p95</div>
         <div class="stacked-bar" aria-label="risk and candidate distribution">
           <span class="risk" style="--value:{risk_width:.2f}%"></span>
-          <span class="candidate" style="--value:{candidate_width:.2f}%"></span>
+          <span class="candidate" style="--offset:{risk_width:.2f}%; --value:{candidate_width:.2f}%"></span>
         </div>
       </div>
+"""
+
+
+def flatten_month_rows(by_month: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
+    return [row for month in sorted(by_month) for row in by_month[month]]
+
+
+def sort_value(value: Any, default: float = 9999.0) -> float:
+    parsed = parse_float(value)
+    return default if parsed is None else parsed
+
+
+def risk_score(row: dict[str, Any]) -> float:
+    values = [
+        sort_value(row.get("cpu_p95"), 0.0),
+        sort_value(row.get("cpu_p99"), 0.0),
+        sort_value(row.get("cpu_max"), 0.0),
+        sort_value(row.get("memory_p95"), 0.0),
+        sort_value(row.get("memory_p99"), 0.0),
+        sort_value(row.get("memory_max"), 0.0),
+    ]
+    return max(values)
+
+
+def rightsize_reason(row: dict[str, Any]) -> str:
+    status = row.get("status")
+    coverage = row.get("coverage_pct")
+    if status == "insufficient data":
+        return f"Coverage {fmt_number(coverage, '%')}; collect more trend data"
+    if status == "capacity risk":
+        return (
+            f"CPU p95 {fmt_number(row.get('cpu_p95'), '%')}, "
+            f"memory p95 {fmt_number(row.get('memory_p95'), '%')}"
+        )
+    if status == "downsize candidate":
+        return (
+            f"Low p95: CPU {fmt_number(row.get('cpu_p95'), '%')}, "
+            f"memory {fmt_number(row.get('memory_p95'), '%')}"
+        )
+    return (
+        f"Monitor: CPU p95 {fmt_number(row.get('cpu_p95'), '%')}, "
+        f"memory p95 {fmt_number(row.get('memory_p95'), '%')}"
+    )
+
+
+def render_focus_table(rows: list[dict[str, Any]], empty_text: str) -> str:
+    if not rows:
+        return f'<div class="empty-panel">{e(empty_text)}</div>'
+    body = []
+    for row in rows:
+        status = row.get("status", "")
+        body.append(
+            "<tr>"
+            f"<td>{e(row.get('month'))}</td>"
+            f"<td>{e(row.get('vm_name'))}</td>"
+            f"<td>{e(row.get('ip'))}</td>"
+            f"<td>{fmt_number(row.get('coverage_pct'), '%')}</td>"
+            f"<td>{fmt_number(row.get('cpu_p95'), '%')}</td>"
+            f"<td>{fmt_number(row.get('memory_p95'), '%')}</td>"
+            f"<td><span class=\"badge {badge_class(status)}\">{e(status)}</span></td>"
+            f"<td>{e(rightsize_reason(row))}</td>"
+            "</tr>"
+        )
+    return f"""
+      <div class="focus-scroll">
+        <table class="focus-table">
+          <thead>
+            <tr><th>Month</th><th>VM</th><th>IP</th><th>Coverage</th><th>CPU p95</th><th>Mem p95</th><th>Status</th><th>Why</th></tr>
+          </thead>
+          <tbody>{"".join(body)}</tbody>
+        </table>
+      </div>
+"""
+
+
+def render_dashboard(by_month: dict[str, list[dict[str, Any]]], overview: dict[str, Any]) -> str:
+    rows = flatten_month_rows(by_month)
+    candidates = sorted(
+        [row for row in rows if row.get("status") == "downsize candidate"],
+        key=lambda row: (
+            -sort_value(row.get("coverage_pct"), 0.0),
+            sort_value(row.get("cpu_p95")),
+            sort_value(row.get("memory_p95")),
+            row.get("vm_name") or "",
+        ),
+    )[:8]
+    risks = sorted(
+        [row for row in rows if row.get("status") == "capacity risk"],
+        key=lambda row: (-risk_score(row), row.get("vm_name") or ""),
+    )[:8]
+    gaps = sorted(
+        [row for row in rows if sort_value(row.get("coverage_pct"), 0.0) < 90],
+        key=lambda row: (sort_value(row.get("coverage_pct"), 0.0), row.get("vm_name") or ""),
+    )[:8]
+    monitor_count = sum(1 for row in rows if row.get("status") == "monitor")
+    action_cards = [
+        ("Review candidates", str(overview.get("downsize", 0)), "Low CPU and memory p95 with enough trend coverage"),
+        ("Check risks first", str(overview.get("risk", 0)), "High CPU or memory pressure before any downsize"),
+        ("Fix data gaps", str(overview.get("insufficient", 0)), "Coverage below decision quality or missing key metrics"),
+        ("Monitor", str(monitor_count), "No immediate action from utilization thresholds"),
+    ]
+    cards_html = "\n".join(
+        f"""
+        <div class="action-card">
+          <span>{e(label)}</span>
+          <strong>{e(value)}</strong>
+          <small>{e(description)}</small>
+        </div>
+"""
+        for label, value, description in action_cards
+    )
+    return f"""
+    <section class="dashboard-panel" id="right-size-dashboard">
+      <div class="section-head">
+        <div>
+          <p class="section-kicker">Right-size dashboard</p>
+          <h2>What to review first</h2>
+          <p>Use this section to triage candidates before opening the monthly detail tables.</p>
+        </div>
+      </div>
+      <div class="action-grid">
+        {cards_html}
+      </div>
+      <div class="dashboard-grid">
+        <article class="focus-panel wide">
+          <div class="panel-head">
+            <h3>Top downsize candidates</h3>
+            <p>Validate owner, workload schedule, and cost metadata before changing size.</p>
+          </div>
+          {render_focus_table(candidates, "No downsize candidates found with the current thresholds.")}
+        </article>
+        <article class="focus-panel">
+          <div class="panel-head">
+            <h3>Capacity risks</h3>
+            <p>Resolve these before reducing resources.</p>
+          </div>
+          {render_focus_table(risks, "No capacity risk rows found.")}
+        </article>
+        <article class="focus-panel">
+          <div class="panel-head">
+            <h3>Data quality gaps</h3>
+            <p>Right-size decisions need stable trend coverage.</p>
+          </div>
+          {render_focus_table(gaps, "No low-coverage rows found.")}
+        </article>
+        <article class="rule-panel">
+          <h3>Decision basis</h3>
+          <ul>
+            <li>Downsize candidate: CPU p95 below 20%, CPU max below 60%, memory p95 below 50%, and memory max below 75%.</li>
+            <li>Capacity risk: CPU or memory p95/p99/max crosses high-utilization thresholds.</li>
+            <li>Insufficient data: coverage below 50% or missing CPU and memory p95.</li>
+            <li>Use cost, owner, environment, and application criticality as approval metadata outside Zabbix.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
 """
 
 
@@ -374,6 +530,7 @@ def render_html(
         months = ["unknown"]
     overview = overall_stats(by_month)
     month_summaries = "\n".join(render_month_summary_row(month, by_month.get(month, [])) for month in months)
+    dashboard = render_dashboard(by_month, overview)
     sections = []
     for month in months:
         rows = by_month.get(month, [])
@@ -424,59 +581,80 @@ def render_html(
   <title>Zabbix FinOps Monthly Report</title>
   <style>
     :root {{
-      --bg: #f7f8fb;
+      --bg: #f6f8fb;
       --surface: #ffffff;
       --surface-soft: #f1f5f9;
       --line: #dbe3ec;
       --line-soft: #e7edf3;
-      --text: #17202c;
-      --muted: #627084;
+      --text: #111827;
+      --muted: #64748b;
       --accent: #0f766e;
+      --accent-2: #2563eb;
       --accent-soft: #ccfbf1;
       --danger: #b42318;
       --warn: #a15c07;
       --mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
     }}
     * {{ box-sizing: border-box; }}
+    html {{ scroll-behavior: smooth; }}
     body {{ margin: 0; background: var(--bg); color: var(--text); font-family: "Geist", "Segoe UI", Arial, sans-serif; }}
-    header {{ padding: 32px 28px 22px; background: var(--surface); border-bottom: 1px solid var(--line); }}
+    header {{ padding: 34px 28px 22px; background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%); border-bottom: 1px solid var(--line); }}
     main {{ padding: 24px 28px 52px; }}
-    .shell {{ max-width: 1480px; margin: 0 auto; }}
-    .hero {{ display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(420px, .9fr); gap: 24px; align-items: end; }}
-    h1 {{ margin: 0 0 10px; font-size: 36px; line-height: 1.05; letter-spacing: 0; }}
+    .shell {{ max-width: 1520px; margin: 0 auto; }}
+    .hero {{ display: grid; grid-template-columns: minmax(360px, .82fr) minmax(620px, 1.18fr); gap: 28px; align-items: start; }}
+    h1 {{ margin: 0 0 10px; font-size: clamp(30px, 3vw, 44px); line-height: 1.03; letter-spacing: 0; }}
     h2 {{ margin: 0; font-size: 22px; letter-spacing: 0; }}
     p {{ margin: 4px 0; color: var(--muted); }}
-    code {{ padding: 2px 5px; border-radius: 4px; background: var(--surface-soft); font-family: var(--mono); }}
+    code {{ padding: 2px 5px; border-radius: 4px; background: var(--surface-soft); font-family: var(--mono); overflow-wrap: anywhere; }}
     nav {{ display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px; }}
-    nav a {{ color: var(--text); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 6px 11px; background: #fbfdff; font-size: 13px; }}
-    nav a:hover {{ border-color: var(--accent); color: var(--accent); }}
-    .overview {{ display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; }}
-    .overview-item {{ min-height: 92px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; background: #fbfdff; }}
-    .overview-item span, .cards span {{ display: block; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }}
-    .overview-item strong, .cards strong {{ display: block; margin-top: 5px; font-family: var(--mono); font-size: 24px; line-height: 1.1; }}
-    .overview-item small {{ display: block; margin-top: 7px; color: var(--muted); font-size: 12px; }}
+    nav a {{ color: var(--text); text-decoration: none; border: 1px solid var(--line); border-radius: 999px; padding: 7px 12px; background: #fbfdff; font-size: 13px; transition: border-color .16s ease, color .16s ease, transform .16s ease; }}
+    nav a:hover {{ border-color: var(--accent); color: var(--accent); transform: translateY(-1px); }}
+    .overview {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 10px; }}
+    .overview-item {{ min-height: 104px; padding: 13px 13px 12px; border: 1px solid var(--line); border-radius: 8px; background: #fbfdff; box-shadow: 0 12px 28px -24px rgba(15, 23, 42, .45); }}
+    .overview-item span, .cards span {{ display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }}
+    .overview-item strong, .cards strong {{ display: block; margin-top: 6px; font-family: var(--mono); font-size: clamp(18px, 1.7vw, 25px); line-height: 1.05; letter-spacing: 0; overflow-wrap: anywhere; }}
+    .overview-item small {{ display: block; margin-top: 8px; color: var(--muted); font-size: 12px; line-height: 1.35; }}
     .month-strip {{ margin-top: 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); overflow: hidden; }}
-    .month-summary {{ display: grid; grid-template-columns: 110px 90px 120px 120px 150px minmax(160px, 1fr); gap: 12px; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line-soft); font-size: 13px; }}
+    .month-summary {{ display: grid; grid-template-columns: 108px 90px 126px 126px 156px minmax(180px, 1fr); gap: 14px; align-items: center; padding: 11px 12px; border-bottom: 1px solid var(--line-soft); font-size: 13px; }}
     .month-summary:last-child {{ border-bottom: 0; }}
     .month-summary a {{ color: var(--accent); font-weight: 700; text-decoration: none; }}
     .stacked-bar {{ position: relative; height: 8px; border-radius: 999px; background: #e8eef5; overflow: hidden; }}
     .stacked-bar span {{ position: absolute; top: 0; bottom: 0; left: 0; width: var(--value); }}
     .stacked-bar .risk {{ background: #ef9a9a; }}
-    .stacked-bar .candidate {{ background: var(--accent); opacity: .75; }}
+    .stacked-bar .candidate {{ left: var(--offset); background: var(--accent); opacity: .75; }}
+    .dashboard-panel {{ margin: 0 0 24px; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 18px 40px -32px rgba(15, 23, 42, .35); }}
+    .action-grid {{ display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 18px; }}
+    .action-card {{ min-height: 112px; padding: 15px; border: 1px solid var(--line-soft); border-radius: 8px; background: #fbfdff; }}
+    .action-card span {{ display: block; color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; }}
+    .action-card strong {{ display: block; margin-top: 7px; font-family: var(--mono); font-size: 30px; line-height: 1; }}
+    .action-card small {{ display: block; margin-top: 10px; color: var(--muted); line-height: 1.35; }}
+    .dashboard-grid {{ display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(0, .85fr); gap: 14px; align-items: start; }}
+    .focus-panel, .rule-panel {{ min-width: 0; padding: 16px; border: 1px solid var(--line-soft); border-radius: 8px; background: #ffffff; }}
+    .focus-panel.wide {{ grid-row: span 2; }}
+    .panel-head {{ display: flex; justify-content: space-between; gap: 12px; align-items: start; margin-bottom: 12px; }}
+    .panel-head h3, .rule-panel h3 {{ margin: 0; font-size: 16px; }}
+    .panel-head p {{ max-width: 44ch; font-size: 13px; }}
+    .focus-scroll {{ overflow-x: auto; border: 1px solid var(--line-soft); border-radius: 8px; }}
+    .focus-table {{ min-width: 820px; }}
+    .focus-table th, .focus-table td {{ padding: 8px 9px; font-size: 12px; }}
+    .empty-panel {{ padding: 20px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); background: #fbfdff; }}
+    .rule-panel ul {{ margin: 12px 0 0; padding-left: 18px; color: #334155; }}
+    .rule-panel li {{ margin: 8px 0; line-height: 1.45; }}
     .month-panel {{ margin: 0 0 24px; padding: 20px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 18px 40px -32px rgba(15, 23, 42, .35); }}
     .section-head {{ display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 16px; }}
     .section-kicker {{ margin: 0 0 4px; color: var(--accent); font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }}
     .signals {{ display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }}
     .chip {{ padding: 4px 8px; border-radius: 999px; background: var(--surface-soft); color: #334155; font-size: 12px; font-weight: 700; }}
     .muted {{ color: var(--muted); }}
-    .cards {{ display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 8px; margin-bottom: 16px; }}
+    .cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 8px; margin-bottom: 16px; }}
     .cards div {{ padding: 11px 12px; background: #fbfdff; border: 1px solid var(--line-soft); border-radius: 8px; }}
-    .table-scroll {{ overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; }}
+    .table-scroll {{ overflow-x: auto; border: 1px solid var(--line); border-radius: 8px; background: #fff; }}
     table {{ width: 100%; border-collapse: collapse; font-size: 13px; }}
     th, td {{ padding: 9px 10px; border-bottom: 1px solid var(--line-soft); text-align: left; white-space: nowrap; }}
-    th {{ position: sticky; top: 0; background: #eef3f8; font-weight: 700; z-index: 1; }}
+    th {{ position: sticky; top: 0; background: #eef3f8; font-weight: 700; z-index: 1; color: #334155; }}
     td {{ font-family: var(--mono); }}
     td:first-child, th:first-child {{ font-family: "Geist", "Segoe UI", Arial, sans-serif; }}
+    tbody tr:hover {{ background: #f8fafc; }}
     tr:last-child td {{ border-bottom: 0; }}
     .metric-cell {{ min-width: 84px; }}
     .metric-cell span {{ display: block; margin-bottom: 5px; }}
@@ -487,8 +665,11 @@ def render_html(
     .badge.bad {{ background: #fee2e2; color: #991b1b; }}
     .badge.warn {{ background: #fef3c7; color: #92400e; }}
     .badge.neutral {{ background: #e0f2fe; color: #075985; }}
-    @media (max-width: 1180px) {{ .hero {{ grid-template-columns: 1fr; }} .overview {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} .cards {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
-    @media (max-width: 760px) {{ header, main {{ padding-left: 16px; padding-right: 16px; }} .overview {{ grid-template-columns: 1fr; }} .month-summary {{ grid-template-columns: 1fr; }} .section-head {{ display: block; }} .signals {{ justify-content: flex-start; margin-top: 10px; }} }}
+    @media (max-width: 1180px) {{ .hero {{ grid-template-columns: 1fr; }} .overview {{ grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }} .cards {{ grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }} .dashboard-grid {{ grid-template-columns: 1fr; }} .focus-panel.wide {{ grid-row: auto; }} }}
+    @media (max-width: 980px) {{ .action-grid {{ grid-template-columns: repeat(2, minmax(0, 1fr)); }} }}
+    @media (max-width: 860px) {{ .month-summary {{ grid-template-columns: 1fr 1fr; }} .month-summary .stacked-bar {{ grid-column: 1 / -1; }} }}
+    @media (max-width: 760px) {{ header, main {{ padding-left: 16px; padding-right: 16px; }} .overview {{ grid-template-columns: 1fr 1fr; }} .month-summary {{ grid-template-columns: 1fr; }} .section-head {{ display: block; }} .signals {{ justify-content: flex-start; margin-top: 10px; }} }}
+    @media (max-width: 520px) {{ .overview, .action-grid {{ grid-template-columns: 1fr; }} h1 {{ font-size: 30px; }} }}
   </style>
 </head>
 <body>
@@ -514,6 +695,7 @@ def render_html(
     </div>
   </header>
   <main class="shell">
+    {dashboard}
     {"".join(sections)}
   </main>
 </body>
