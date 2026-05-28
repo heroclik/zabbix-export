@@ -828,6 +828,82 @@ def update_min_max_avg(target: dict[str, Any], prefix: str, value_min: float, va
     target[count_key] = int(target.get(count_key) or 0) + 1
 
 
+def update_component(
+    components: dict[str, dict[str, float | int]],
+    metric: str,
+    value_min: float,
+    value_avg: float,
+    value_max: float,
+) -> None:
+    component = components.setdefault(
+        metric,
+        {
+            "min": value_min,
+            "max": value_max,
+            "sum": 0.0,
+            "count": 0,
+        },
+    )
+    component["min"] = min(float(component["min"]), value_min)
+    component["max"] = max(float(component["max"]), value_max)
+    component["sum"] = float(component["sum"]) + value_avg
+    component["count"] = int(component["count"]) + 1
+
+
+def component_values(components: dict[str, dict[str, float | int]], metric: str) -> tuple[float, float, float] | None:
+    component = components.get(metric)
+    if not component:
+        return None
+    count = int(component["count"])
+    if count <= 0:
+        return None
+    return (
+        float(component["min"]),
+        float(component["sum"]) / count,
+        float(component["max"]),
+    )
+
+
+def safe_percent(numerator: float, denominator: float) -> float | None:
+    if denominator <= 0:
+        return None
+    return max(0.0, min(100.0, numerator / denominator * 100.0))
+
+
+def derive_memory_used_pct(components: dict[str, dict[str, float | int]]) -> tuple[float, float, float] | None:
+    total = component_values(components, "memory_total_bytes")
+    if not total:
+        return None
+
+    total_min, total_avg, total_max = total
+    used = component_values(components, "memory_used_bytes")
+    if used:
+        used_min, used_avg, used_max = used
+        derived = (
+            safe_percent(used_min, total_max),
+            safe_percent(used_avg, total_avg),
+            safe_percent(used_max, total_min),
+        )
+        if all(value is not None for value in derived):
+            return derived  # type: ignore[return-value]
+
+    available = component_values(components, "memory_available_bytes")
+    if available:
+        available_min, available_avg, available_max = available
+        available_max_pct = safe_percent(available_max, total_min)
+        available_avg_pct = safe_percent(available_avg, total_avg)
+        available_min_pct = safe_percent(available_min, total_max)
+        derived = (
+            None if available_max_pct is None else 100.0 - available_max_pct,
+            None if available_avg_pct is None else 100.0 - available_avg_pct,
+            None if available_min_pct is None else 100.0 - available_min_pct,
+        )
+        if all(value is not None for value in derived):
+            return derived  # type: ignore[return-value]
+
+    return None
+
+
 def build_wide_rows(
     trends: list[dict[str, Any]],
     items_by_id: dict[str, dict[str, Any]],
@@ -870,11 +946,14 @@ def build_wide_rows(
                 "disk_avg": None,
                 "network_in": None,
                 "network_out": None,
+                "_memory_components": {},
             },
         )
         value_min, value_avg, value_max = transform_values(rule, trend)
         if rule.metric in metric_prefix:
             update_min_max_avg(target, metric_prefix[rule.metric], value_min, value_avg, value_max)
+        elif rule.metric in {"memory_used_bytes", "memory_available_bytes", "memory_total_bytes"}:
+            update_component(target["_memory_components"], rule.metric, value_min, value_avg, value_max)
         elif rule.metric == "net_in":
             target["network_in"] = float(target.get("network_in") or 0.0) + value_avg
         elif rule.metric == "net_out":
@@ -882,6 +961,11 @@ def build_wide_rows(
 
     wide_rows: list[dict[str, Any]] = []
     for row in rows_by_host_clock.values():
+        if not int(row.get("_memory_count") or 0):
+            derived_memory = derive_memory_used_pct(row.get("_memory_components") or {})
+            if derived_memory:
+                update_min_max_avg(row, "memory", *derived_memory)
+        row.pop("_memory_components", None)
         for prefix in ("cpu", "memory", "disk"):
             count = int(row.pop(f"_{prefix}_count", 0) or 0)
             total = float(row.pop(f"_{prefix}_sum", 0.0) or 0.0)

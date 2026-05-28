@@ -23,6 +23,12 @@ Capacity fields are read from Zabbix items when available:
 - `memory_total_gb`: `vm.memory.size[total]`
 - `disk_total_gb`: `vfs.fs.size[...,total]` or `vfs.fs.dependent.size[...,total]`
 
+For `memory_min`, `memory_max`, and `memory_avg`, the exporter first uses a
+percentage item such as `vm.memory.utilization` or `vm.memory.size[pused]`. If
+that item is not available, it derives memory used percent from
+`vm.memory.size[used]` + `vm.memory.size[total]`, or from
+`vm.memory.size[available]` + `vm.memory.size[total]`.
+
 ## Files
 
 | File | Purpose |
@@ -238,6 +244,8 @@ Default rules match common Zabbix agent and agent2 item keys, including:
 - `vm.memory.utilization`
 - `vm.memory.size[pused]`
 - `vm.memory.size[pavailable]`
+- `vm.memory.size[used]`
+- `vm.memory.size[available]`
 - `vm.memory.size[total]`
 - `system.swap.size[...,free|pfree|pused|total]`
 - `vfs.fs.size[...,pused|pfree]`
